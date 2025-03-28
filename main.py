@@ -10,14 +10,12 @@ from functools import reduce
 coin = {"krw", "inr", "jpy", "cad", "eur", "gbp", "cny", "mxn", "usd", "brl"}
 
 # validando informações recebidas.
-# Valida se foi preenchido corretamente todos os campos, valida se o tipos estão de acordos se o moeda de origem e de destino estão de acordo com o conjunto e verifica se as moedas são divergente para poder fazer o calculo de conversão.
-
-
 def validation(currency_quote, exchange, price):
-    if not currency_quote or not exchange or not price:
+    currency_quote, exchange = currency_quote.strip().lower(), exchange.strip().lower()  # Remove espaços extras e normaliza
+    if not all(map(lambda x: x, [currency_quote, exchange, price])):
         print("Preencher todos os campos")
         return client()
-    if not isinstance(currency_quote, str) or not isinstance(exchange, str) or not isinstance(price, float):
+    if not all(isinstance(x, str) for x in [currency_quote, exchange]) or not isinstance(price, float):
         print("campos inválidos preencha corretamente")
         return client()
     if currency_quote not in coin:
@@ -31,25 +29,18 @@ def validation(currency_quote, exchange, price):
         return client()
     return currency_quote, exchange, price
 
-
 # requisição get para site de cotação ainda em desenvolvimento.
 def currency_converter(currency_quote, exchange):
-    def get_value(price):
-        # configurar o headers para requisição get do requests.
-        headers = {"user-agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36"}
-        link = f"https://wise.com/br/currency-converter/{currency_quote}-to-{exchange}-rate?amount={price}"
-        requisicao = requests.get(link, headers=headers)
-        return requisicao
-    return get_value
+    return lambda price: requests.get(
+        f"https://wise.com/br/currency-converter/{currency_quote}-to-{exchange}-rate?amount={price}",
+        headers={"user-agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36"}
+    )
 
-
-# Função para separar atividades no caso do BeatifulSoup para deixar o webscrapper mais organizado e buscar o valor da cotação do site.
-# Só que podemos aplicar reduce com lambda e trocar find para conseguir atender as atividades propostas
+# Função para buscar o valor da cotação do site usando list comprehension e reduce.
 def search_conversion(response):
     site = BeautifulSoup(response.text, "html.parser")
-    value = site.find('input', id="target-input")
-    print(value.get('value'))
-
+    value = reduce(lambda _, el: el, [el.get('value') for el in site.find_all('input', id="target-input")], None)
+    print(value)
 
 # O cliente chamando a requisição especificando as inputs a seguir para personalizar a requests.
 def client():
@@ -60,6 +51,5 @@ def client():
     teste = currency_converter(currency_quote, exchange)
     response = teste(price)
     search_conversion(response)
-
 
 client()
